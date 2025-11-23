@@ -680,12 +680,12 @@ MiniSurround.config = {
 
   -- Module mappings. Use `''` (empty string) to disable one.
   mappings = {
-    add = 'sa', -- Add surrounding in Normal and Visual modes
-    delete = 'sd', -- Delete surrounding
-    find = 'sf', -- Find surrounding (to the right)
-    find_left = 'sF', -- Find surrounding (to the left)
-    highlight = 'sh', -- Highlight surrounding
-    replace = 'sr', -- Replace surrounding
+    add = 'sa',        -- Add surrounding in Normal and Visual modes
+    delete = 'sd',     -- Delete surrounding
+    find = 'sf',       -- Find surrounding (to the right)
+    find_left = 'sF',  -- Find surrounding (to the left)
+    highlight = 'sh',  -- Highlight surrounding
+    replace = 'sr',    -- Replace surrounding
 
     suffix_last = 'l', -- Suffix to search with "prev" method
     suffix_next = 'n', -- Suffix to search with "next" method
@@ -709,6 +709,9 @@ MiniSurround.config = {
   -- This also affects (purely informational) helper messages shown after
   -- idle time if user input is required.
   silent = false,
+
+  -- function that runs after any event that changes the text
+  post = function(event) end
 }
 --minidoc_afterlines_end
 
@@ -773,6 +776,8 @@ MiniSurround.add = function(mode)
     vim.fn.append(to_line, init_indent .. surr_info.right)
     vim.fn.append(from_line - 1, init_indent .. surr_info.left)
 
+    H.get_config().post("add")
+
     return
   end
 
@@ -790,6 +795,8 @@ MiniSurround.add = function(mode)
     end
 
     H.set_cursor(marks.first.line, from_col + surr_info.left:len())
+
+    H.get_config().post("add")
 
     return
   end
@@ -829,6 +836,8 @@ MiniSurround.delete = function()
     vim.fn.deletebufline(buf_id, to_line)
     vim.fn.deletebufline(buf_id, from_line)
   end
+
+  H.get_config().post("delete")
 end
 
 --- Replace surrounding
@@ -850,6 +859,8 @@ MiniSurround.replace = function()
   -- Set cursor to be on the right of left surrounding
   local from = surr.left.from
   H.set_cursor(from.line, from.col + new_surr_info.left:len())
+
+  H.get_config().post("replace")
 end
 
 --- Find surrounding
@@ -1058,7 +1069,7 @@ MiniSurround.gen_spec.input.treesitter = function(captures, opts)
   return function()
     local has_nvim_treesitter = pcall(require, 'nvim-treesitter') and pcall(require, 'nvim-treesitter.query')
     local range_pair_querier = (has_nvim_treesitter and opts.use_nvim_treesitter) and H.get_matched_range_pairs_plugin
-      or H.get_matched_range_pairs_builtin
+        or H.get_matched_range_pairs_builtin
     local matched_range_pairs = range_pair_querier(captures)
 
     -- Return array of region pairs
@@ -1099,13 +1110,13 @@ H.builtin_surroundings = {
   -- Use balanced pair for brackets. Use opening ones to possibly
   -- replace/delete innder edge whitespace.
   ['('] = { input = { '%b()', '^.%s*().-()%s*.$' }, output = { left = '( ', right = ' )' } },
-  [')'] = { input = { '%b()', '^.().*().$' },       output = { left = '(',  right = ')' } },
+  [')'] = { input = { '%b()', '^.().*().$' }, output = { left = '(', right = ')' } },
   ['['] = { input = { '%b[]', '^.%s*().-()%s*.$' }, output = { left = '[ ', right = ' ]' } },
-  [']'] = { input = { '%b[]', '^.().*().$' },       output = { left = '[',  right = ']' } },
+  [']'] = { input = { '%b[]', '^.().*().$' }, output = { left = '[', right = ']' } },
   ['{'] = { input = { '%b{}', '^.%s*().-()%s*.$' }, output = { left = '{ ', right = ' }' } },
-  ['}'] = { input = { '%b{}', '^.().*().$' },       output = { left = '{',  right = '}' } },
+  ['}'] = { input = { '%b{}', '^.().*().$' }, output = { left = '{', right = '}' } },
   ['<'] = { input = { '%b<>', '^.%s*().-()%s*.$' }, output = { left = '< ', right = ' >' } },
-  ['>'] = { input = { '%b<>', '^.().*().$' },       output = { left = '<',  right = '>' } },
+  ['>'] = { input = { '%b<>', '^.().*().$' }, output = { left = '<', right = '>' } },
   -- Derived from user prompt
   ['?'] = {
     input = function()
@@ -1195,13 +1206,13 @@ H.apply_config = function(config)
   -- Make regular mappings
   local m = config.mappings
 
-  expr_map(m.add,     H.make_operator('add', nil, true), 'Add surrounding')
-  expr_map(m.delete,  H.make_operator('delete'),         'Delete surrounding')
-  expr_map(m.replace, H.make_operator('replace'),        'Replace surrounding')
+  expr_map(m.add, H.make_operator('add', nil, true), 'Add surrounding')
+  expr_map(m.delete, H.make_operator('delete'), 'Delete surrounding')
+  expr_map(m.replace, H.make_operator('replace'), 'Replace surrounding')
 
-  map(m.find,      H.make_action('find', 'right'), 'Find right surrounding')
-  map(m.find_left, H.make_action('find', 'left'),  'Find left surrounding')
-  map(m.highlight, H.make_action('highlight'),     'Highlight surrounding')
+  map(m.find, H.make_action('find', 'right'), 'Find right surrounding')
+  map(m.find_left, H.make_action('find', 'left'), 'Find left surrounding')
+  map(m.highlight, H.make_action('highlight'), 'Highlight surrounding')
 
   H.map('x', m.add, [[:<C-u>lua MiniSurround.add('visual')<CR>]], { desc = 'Add surrounding to selection' })
 
@@ -1218,21 +1229,21 @@ H.apply_config = function(config)
 
   if m.suffix_last ~= '' then
     local suff = m.suffix_last
-    suffix_expr_map(m.delete,  suff, H.make_operator('delete',  'prev'), 'Delete previous surrounding')
+    suffix_expr_map(m.delete, suff, H.make_operator('delete', 'prev'), 'Delete previous surrounding')
     suffix_expr_map(m.replace, suff, H.make_operator('replace', 'prev'), 'Replace previous surrounding')
 
-    suffix_map(m.find,      suff, H.make_action('find', 'right',  'prev'), 'Find previous right surrounding')
-    suffix_map(m.find_left, suff, H.make_action('find', 'left',   'prev'), 'Find previous left surrounding')
+    suffix_map(m.find, suff, H.make_action('find', 'right', 'prev'), 'Find previous right surrounding')
+    suffix_map(m.find_left, suff, H.make_action('find', 'left', 'prev'), 'Find previous left surrounding')
     suffix_map(m.highlight, suff, H.make_action('highlight', nil, 'prev'), 'Highlight previous surrounding')
   end
 
   if m.suffix_next ~= '' then
     local suff = m.suffix_next
-    suffix_expr_map(m.delete,  suff, H.make_operator('delete',  'next'), 'Delete next surrounding')
+    suffix_expr_map(m.delete, suff, H.make_operator('delete', 'next'), 'Delete next surrounding')
     suffix_expr_map(m.replace, suff, H.make_operator('replace', 'next'), 'Replace next surrounding')
 
-    suffix_map(m.find,      suff, H.make_action('find', 'right',  'next'), 'Find next right surrounding')
-    suffix_map(m.find_left, suff, H.make_action('find', 'left',   'next'), 'Find next left surrounding')
+    suffix_map(m.find, suff, H.make_action('find', 'right', 'next'), 'Find next right surrounding')
+    suffix_map(m.find_left, suff, H.make_action('find', 'left', 'next'), 'Find next left surrounding')
     suffix_map(m.highlight, suff, H.make_action('highlight', nil, 'next'), 'Highlight next surrounding')
   end
   --stylua: ignore end
@@ -2081,7 +2092,7 @@ H.region_highlight = function(buf_id, region)
 
   -- Indexing is zero-based. Rows - end-inclusive, columns - end-exclusive.
   local from_line, from_col, to_line, to_col =
-    region.from.line - 1, region.from.col - 1, region.to.line - 1, region.to.col
+      region.from.line - 1, region.from.col - 1, region.to.line - 1, region.to.col
   H.highlight_range(buf_id, ns_id, 'MiniSurround', { from_line, from_col }, { to_line, to_col })
 end
 
@@ -2131,7 +2142,7 @@ H.extract_surr_spans = function(s, extract_pattern)
   local is_valid_positions = is_all_numbers and (#positions == 2 or #positions == 4)
   if not is_valid_positions then
     local msg = 'Could not extract proper positions (two or four empty captures) from '
-      .. string.format([[string '%s' with extraction pattern '%s'.]], s, extract_pattern)
+        .. string.format([[string '%s' with extraction pattern '%s'.]], s, extract_pattern)
     H.error(msg)
   end
 
@@ -2346,7 +2357,7 @@ end
 -- TODO: Remove after compatibility with Neovim=0.9 is dropped
 H.islist = vim.fn.has('nvim-0.10') == 1 and vim.islist or vim.tbl_islist
 H.tbl_flatten = vim.fn.has('nvim-0.10') == 1 and function(x) return vim.iter(x):flatten(math.huge):totable() end
-  or vim.tbl_flatten
+    or vim.tbl_flatten
 
 -- TODO: Remove after compatibility with Neovim=0.10 is dropped
 H.highlight_range = function(...) vim.hl.range(...) end
