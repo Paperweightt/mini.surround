@@ -759,6 +759,8 @@ MiniSurround.add = function(mode)
     -- Set cursor to be on the right of left surrounding
     H.set_cursor(marks.first.line, marks.first.col + surr_info.left:len())
 
+    H.get_config().post("add")
+
     return
   end
 
@@ -814,6 +816,8 @@ MiniSurround.delete = function()
   H.region_replace(surr.right, {})
   H.region_replace(surr.left, {})
 
+  H.get_config().post("delete")
+
   -- Set cursor to be on the right of deleted left surrounding
   local from = surr.left.from
   H.set_cursor(from.line, from.col)
@@ -836,8 +840,6 @@ MiniSurround.delete = function()
     vim.fn.deletebufline(buf_id, to_line)
     vim.fn.deletebufline(buf_id, from_line)
   end
-
-  H.get_config().post("delete")
 end
 
 --- Replace surrounding
